@@ -4,4 +4,5 @@ __pycache__
 db.sqlite3
 que_reply.py
 vopros_otvet.db
+.vs
 

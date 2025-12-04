@@ -37,7 +37,7 @@ request_chat_id = config.request_chat_id
 password_chat_id = config.password_chat_id
 
 rt = Router() # Отделяем файл с хендлерами от остальных модулей
-rt.message.middleware(AccessMiddleware()) # Подключение пропускного миддлвэйра к роутеру
+#rt.message.middleware(AccessMiddleware()) # Подключение пропускного миддлвэйра к роутеру
 rt.message.middleware(BanUserMiddleware()) # Подключение бан-миддлвэйра к роутеру
 
 # Класс состояния регистрации пользователя по параметрам: Имя, Номер телефона
@@ -74,13 +74,19 @@ async def cmd_start(message: types.Message):
     user_id_massive = cursor.fetchall()
     txt_3 = txt.text_3
     if user_id_massive:
+        welcome_file = FSInputFile('Добро пожаловать в компанию.pdf')
+        about_file = FSInputFile('О компании.pdf')
         await message.reply('Вы в главном меню!') 
         await message.answer(txt_3, reply_markup=keyboard.kb)
+        await message.answer('Скачайте файлы, чтобы узнать больше о нашей компании!')
+        await message.answer_document(welcome_file)
+        await message.answer_document(about_file)
     else:
         await message.reply("Приветствую! Добро пожаловать в чат-бота от Красинтегра!")
         await message.answer('Пройдите регистрацию в боте, чтобы пользоваться функционалом.',reply_markup=keyboard.btn_reg)
     if message.from_user.id in admin and user_id_massive:
         await message.answer('👮‍♂️ Вы авторизованы как Администратор!',reply_markup=keyboard.kb_admin)
+        
 
 # Обработчик для кнопки "Меню"
 @rt.message(F.text == 'Меню')

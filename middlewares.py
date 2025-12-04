@@ -34,7 +34,7 @@ class AccessMiddleware(BaseMiddleware):
                        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
                        event: Message,
                        data: Dict[str, Any]) -> Any:
-        allowed = self.cursor1.execute(f"SELECT allow_tg_id FROM allow_users WHERE allow_tg_id = {data["event_from_user"].id}").fetchone()
+        allowed = self.cursor1.execute(f"SELECT allow_tg_id FROM allow_users WHERE allow_tg_id = {data['event_from_user'].id}").fetchone()
         user_id = data["event_from_user"].id
         if user_id not in allowed:
              return await event.bot.send_message('Нет доступа к данному ресурсу')
