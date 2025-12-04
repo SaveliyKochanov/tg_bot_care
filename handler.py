@@ -173,7 +173,7 @@ async def send_reg(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer("Вы уже зарегистрированы!")
         return
     if user_id in wait_users:
-        await callback.message.answer("Предже, чем регистрироваться, подождите ответ от модератора!")
+        await callback.message.answer("Нельзя регистрироваться во время ожидания!")
         return
     await state.set_state(Register.name) # Устанавливаем состояние для ввода имени
     await callback.message.answer('Введите ваше имя') # Делаем запрос имени
