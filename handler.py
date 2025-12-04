@@ -337,7 +337,7 @@ async def approve_registration(callback: types.CallbackQuery, state: FSMContext,
 
     # Сохраняем пользователя
     await rq.set_user(user_id, data['name'], data['number'])
-    del wait_users[user_id]
+    del wait_users[wait_users.index(user_id)]
     await callback.bot.send_message(
         chat_id=user_id,
         text=f"""✨ <b>Регистрация подтверждена!</b>
@@ -429,7 +429,7 @@ async def reject_registration(callback: types.CallbackQuery, state: FSMContext):
         storage=state.storage,
         key=StorageKey(bot_id=callback.bot.id, chat_id=user_id, user_id=user_id)
     )
-    del wait_users[user_id]
+    del wait_users[wait_users.index(user_id)]
     await fsm_context.clear()
     await callback.bot.send_message(chat_id=user_id, reply_markup=ReplyKeyboardRemove(), text="❌ Ваша регистрация была отклонена модератором.")
     await callback.answer("Регистрация отклонена.")
