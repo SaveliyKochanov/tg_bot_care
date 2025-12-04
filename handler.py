@@ -36,6 +36,8 @@ admin = [int(x.strip()) for x in config.admins.strip().split(',')]
 request_chat_id = config.request_chat_id
 password_chat_id = config.password_chat_id
 
+wait_users = []
+
 rt = Router() # Отделяем файл с хендлерами от остальных модулей
 #rt.message.middleware(AccessMiddleware()) # Подключение пропускного миддлвэйра к роутеру
 rt.message.middleware(BanUserMiddleware()) # Подключение бан-миддлвэйра к роутеру
@@ -170,7 +172,9 @@ async def send_reg(callback: types.CallbackQuery, state: FSMContext):
     if user:
         await callback.message.answer("Вы уже зарегистрированы!")
         return
-
+    if user_id in wait_users:
+        await callback.message.answer("Предже, чем регистрироваться, подождите ответ от модератора!")
+        return
     await state.set_state(Register.name) # Устанавливаем состояние для ввода имени
     await callback.message.answer('Введите ваше имя') # Делаем запрос имени
 
@@ -307,6 +311,7 @@ async def reg_num(message: Message, state: FSMContext, bot: Bot):
         ]
     ])
     await bot.send_message(chat_id=request_chat_id, text=text, reply_markup=kb)
+    wait_users.append(message.from_user.id)
     await message.answer("⏳ Ваша заявка на регистрацию отправлена. Ожидайте подтверждения модератора.")
 
 
@@ -332,7 +337,7 @@ async def approve_registration(callback: types.CallbackQuery, state: FSMContext,
 
     # Сохраняем пользователя
     await rq.set_user(user_id, data['name'], data['number'])
-
+    del wait_users[user_id]
     await callback.bot.send_message(
         chat_id=user_id,
         text=f"""✨ <b>Регистрация подтверждена!</b>
