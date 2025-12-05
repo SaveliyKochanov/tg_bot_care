@@ -10,7 +10,9 @@ from aiogram.types import (
     FSInputFile, 
     CallbackQuery, 
     InlineKeyboardMarkup, 
-    InlineKeyboardButton
+    InlineKeyboardButton,
+    MenuButtonCommands,
+    MenuButtonDefault
 )
 from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.state import State, StatesGroup
@@ -69,20 +71,16 @@ class BlockedUser(Base):
 
 # Обработчик для команды /start
 @rt.message(CommandStart())
-async def cmd_start(message: types.Message):
+async def cmd_start(message: types.Message, bot: Bot):
     con = sqlite3.connect('db.sqlite3')
     cursor = con.cursor()
     cursor.execute(f"SELECT tg_id FROM users WHERE tg_id = {message.from_user.id}")
     user_id_massive = cursor.fetchall()
     txt_3 = txt.text_3
     if user_id_massive:
-        welcome_file = FSInputFile('Добро пожаловать в компанию.pdf')
-        about_file = FSInputFile('О компании.pdf')
         await message.reply('Вы в главном меню!') 
         await message.answer(txt_3, reply_markup=keyboard.kb)
-        await message.answer('Скачайте файлы, чтобы узнать больше о нашей компании!')
-        await message.answer_document(welcome_file)
-        await message.answer_document(about_file)
+        await keyboard.set_main_menu(bot)
     else:
         await message.reply("Приветствую! Добро пожаловать в чат-бота от Красинтегра!")
         await message.answer('Пройдите регистрацию в боте, чтобы пользоваться функционалом.',reply_markup=keyboard.btn_reg)
@@ -90,20 +88,15 @@ async def cmd_start(message: types.Message):
         await message.answer('👮‍♂️ Вы авторизованы как Администратор!',reply_markup=keyboard.kb_admin)
         
 
-# Обработчик для кнопки "Меню"
-@rt.message(F.text == 'Меню')
-async def main_menu(message: types.Message):
-    await message.answer('Меню', reply_markup=keyboard.main_menu_btns)
-
 # Обработчик для кнопки "Админ Панель" + проверка на админа
 @rt.message(checkAdminFilter(adm), F.text == '💼Админ Панель')
 async def admin_commands(message: types.Message):
     await message.answer('Меню Администратора',reply_markup=keyboard.btn_admin)
 
 # Обработчик для команды /help и кнопки F.A.Q.
-@rt.callback_query(F.data == 'get_help')
-async def handle_help(callback: CallbackQuery):
-    await callback.message.answer(txt.text_1)
+@rt.message(Command(commands='help'))
+async def handle_help(message: types.Message):
+    await message.answer(txt.text_1)
 
 @rt.message(F.text.contains('❓F.A.Q'))
 async def admin_commands(message: types.Message):
@@ -111,54 +104,53 @@ async def admin_commands(message: types.Message):
 
 
 # Обработчик для команды /ask 
-@rt.callback_query(F.data == 'get_support')
-async def handle_support(callback: CallbackQuery):
-    await callback.message.answer("Обратитесь в техподдержку: <a href='https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
+@rt.message(Command(commands='ask'))
+async def handle_support(message: types.Message):
+    await message.answer("Обратитесь в техподдержку: <a href='https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
 
 
 # Обработчик для команды /profile и кнопки Профиль
-@rt.callback_query(F.data == 'get_profile')
-async def handle_profile(callback: CallbackQuery):
+@rt.message(Command(commands='profile'))
+async def handle_profile(message: types.Message):
     con5 = sqlite3.connect('db.sqlite3') # Подключаемся к бд
     cursor5 = con5.cursor() # Создаем курсор 
-    user_id = callback.from_user.id # Получаем ID пользователя
-    user_name = callback.from_user.full_name # Получаем Имя пользователя
+    user_id = message.from_user.id # Получаем ID пользователя
+    user_name = message.from_user.full_name # Получаем Имя пользователя
     cursor5.execute('''SELECT name, number FROM users WHERE tg_id = ?''', (user_id,))
     len_tg = cursor5.fetchone()
     #for name, number in len_tg:
     if len_tg:
       name, number = len_tg
       response = f"👤 Имя пользователя: {user_name}\n\n🔖 ID пользователя: {user_id}\n\n📃 ФИО Пользователя: {name}\n\n☎️ Номер Пользователя: {number}" # Готовим ответ
-    await callback.message.reply(response)
+    await message.reply(response)
 
 # Обработчик для команды /order_cert из Быстрого меню
-@rt.callback_query(F.data == 'order_cert')
-async def handle_cert(callback: CallbackQuery ):
-    await callback.message.answer("Заказать справку можно в личных сообщениях у <a href = 'https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
+@rt.message(Command(commands='order_cert'))
+async def handle_cert(message: types.Message):
+    await message.answer("Заказать справку можно в личных сообщениях у <a href = 'https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
 
 
 # Обработчик для команды /write_note из Быстрого меню
-@rt.callback_query(F.data == 'write_note')
-async def link_docs(callback: CallbackQuery):
-    await callback.message.answer('Ссылки на образцы документов: https://drive.google.com/drive/folders/1QRCZIoHT_Ctd-e3XQgH1FKe6mHZh8-Dh?usp=sharing')
+@rt.message(Command(commands='write_note'))
+async def link_docs(message: types.Message):
+    await message.answer('Ссылки на образцы документов: https://drive.google.com/drive/folders/1QRCZIoHT_Ctd-e3XQgH1FKe6mHZh8-Dh?usp=sharing')
 
 # Обработчик для команды /hospital из Быстрого меню
-@rt.callback_query(F.data == 'my_hospital')
-async def handle_hospital(callback: CallbackQuery):
-    await callback.message.answer("Узнать информацию по больничному можно у <a href = 'https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
+@rt.message(Command(commands='hospital'))
+async def handle_hospital(message: types.Message):
+    await message.answer("Узнать информацию по больничному можно у <a href = 'https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
 
-@rt.callback_query(F.data == 'life_circum')
-async def handle_circ(callback: CallbackQuery):
-    await callback.message.answer("Перейдите по этой <a href ='https://sfr.gov.ru/grazhdanam/families_with_children'>ссылке</a>, чтобы узнать подробности", parse_mode='HTML')
-
+@rt.message(Command(commands='life_circum'))
+async def handle_circ(message: types.Message):
+    await message.answer("Перейдите по этой <a href ='https://sfr.gov.ru/grazhdanam/families_with_children'>ссылке</a>, чтобы узнать подробности", parse_mode='HTML')
 
 # Обработчик для команды /my_vac из Быстрого меню
-@rt.callback_query(F.data == 'my_vac')
+@rt.message(Command(commands='my_vac'))
 async def info_vac(message: types.Message):
     await message.answer('Выбери одну из опций:',reply_markup=keyboard.btn_my_vac)
 
 # Обработчик для команды /my_term из Быстрого меню
-@rt.callback_query(F.data == 'my_term')
+@rt.message(Command(commands='my_term'))
 async def info_term(message: types.Message):
     await message.answer('Выбери одну из опций:',reply_markup=keyboard.btn_my_term)
 
@@ -344,10 +336,7 @@ async def approve_registration(callback: types.CallbackQuery, state: FSMContext,
 
 Рады приветствовать вас, <b>{data['name']}</b>! 🎊
 
-Теперь у вас есть доступ к боту бесплатной доставки еды для сотрудников:
-
-🍽️ <b>ЕДА | обеды</b>
-🤖 @kras_eda_delivery_bot
+Теперь у вас есть доступ к информационному боту поддержки сотрудников компании КрасИнтегра.
 
 📢 <b>Общая группа:</b> <a href="https://t.me/your_company_group">Красинтегра. Общая информация</a>
 
@@ -356,10 +345,20 @@ async def approve_registration(callback: types.CallbackQuery, state: FSMContext,
         parse_mode="HTML",
         disable_web_page_preview=True
     )
+    await callback.bot.send_message(chat_id=user_id, text='Скачайте файлы, чтобы узнать больше о нашей компании!')
+    welcome_file = FSInputFile('Добро пожаловать в компанию.pdf')
+    about_file = FSInputFile('О компании.pdf')
+    await callback.bot.send_document(chat_id=user_id, document=welcome_file)
+    await callback.bot.send_document(chat_id=user_id, document=about_file)
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔑 Отправить логин и пароль", callback_data=f"send_creds_{user_id}")]
         ]
+    )
+    await bot.edit_message_reply_markup(
+       chat_id=callback.message.chat.id,
+       message_id=callback.message.message_id,
+       reply_markup=None
     )
     
     text_for_admin = f"""🆕 Новый пользователь прошёл регистрацию:
@@ -422,7 +421,7 @@ async def handle_creds_input(message: Message, state: FSMContext, bot: Bot):
 
 
 @rt.callback_query(F.data.startswith("reject_"))
-async def reject_registration(callback: types.CallbackQuery, state: FSMContext):
+async def reject_registration(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
     user_id = int(callback.data.split("_")[1])
 
     fsm_context = FSMContext(
@@ -433,6 +432,12 @@ async def reject_registration(callback: types.CallbackQuery, state: FSMContext):
     await fsm_context.clear()
     await callback.bot.send_message(chat_id=user_id, reply_markup=ReplyKeyboardRemove(), text="❌ Ваша регистрация была отклонена модератором.")
     await callback.answer("Регистрация отклонена.")
+    
+    await bot.edit_message_reply_markup(
+       chat_id=callback.message.chat.id,
+       message_id=callback.message.message_id,
+       reply_markup=None
+    )
 
 
 

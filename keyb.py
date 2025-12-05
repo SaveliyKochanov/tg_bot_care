@@ -6,13 +6,13 @@ from aiogram.types import BotCommand
 
 # Основная клавиатура с кнопками исполнения команд 
 kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')], # Исполнение /profile
-                                   [KeyboardButton(text = 'Меню')], # 
+                                   #[KeyboardButton(text = 'Меню')], # 
                                    [KeyboardButton(text = '❓F.A.Q')]], # Исполнение /help
                         resize_keyboard=True)
 
 # Экземпляр основной клавиатуры для авторизованного админа
 kb_admin = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')], 
-                                   [KeyboardButton(text = 'Меню')],
+                                   #[KeyboardButton(text = 'Меню')],
                                    [KeyboardButton(text = '💼Админ Панель')]], 
                         resize_keyboard=True)
 
