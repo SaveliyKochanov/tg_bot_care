@@ -12,7 +12,7 @@ kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')]
 
 # Экземпляр основной клавиатуры для авторизованного админа
 kb_admin = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')], 
-                                   #[KeyboardButton(text = 'Меню')],
+                                   [KeyboardButton(text = '📄Обращение к hr-у')],
                                    [KeyboardButton(text = '💼Админ Панель')]], 
                         resize_keyboard=True)
 
@@ -63,9 +63,7 @@ main_menu_btns = InlineKeyboardMarkup(inline_keyboard=[
 async def set_main_menu(bot: Bot):
     main_menu_commands = [
         BotCommand(command="/start", description="Перезапуск бота"),
-        BotCommand(command="/profile", description="Мой аккаунт"),
         BotCommand(command="/help", description="Основная Информация"),
-        BotCommand(command="/ask", description="Техническая Поддержка"),
         BotCommand(command="/order_cert",description="Заказать справку"),
         BotCommand(command="/write_note",description="Написать заявление"),
         BotCommand(command="/hospital",description="Мой больничный"),
@@ -74,6 +72,9 @@ async def set_main_menu(bot: Bot):
         BotCommand(command="/my_term",description = "Мой испытательный срок")
         ]     
     await bot.set_my_commands(main_menu_commands)
+
+async def hide_main_menu(bot: Bot):
+    await bot.set_my_commands([])
 
 # кливиатура для подтверждения или отклонения заявки пользователя на регистрацию
 approve_keyboard = InlineKeyboardMarkup(

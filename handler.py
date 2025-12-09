@@ -82,7 +82,8 @@ async def cmd_start(message: types.Message, bot: Bot):
         await message.answer(txt_3, reply_markup=keyboard.kb)
         await keyboard.set_main_menu(bot)
     else:
-        await message.reply("Приветствую! Добро пожаловать в чат-бота от Красинтегра!")
+        await keyboard.hide_main_menu(bot)
+        await message.reply("Приветствую! Добро пожаловать в чат-бота от Красинтегра!", reply_markup=ReplyKeyboardRemove())
         await message.answer('Пройдите регистрацию в боте, чтобы пользоваться функционалом.',reply_markup=keyboard.btn_reg)
     if message.from_user.id in admin and user_id_massive:
         await message.answer('👮‍♂️ Вы авторизованы как Администратор!',reply_markup=keyboard.kb_admin)
@@ -104,13 +105,13 @@ async def admin_commands(message: types.Message):
 
 
 # Обработчик для команды /ask 
-@rt.message(Command(commands='ask'))
+@rt.message(F.text == '📄Обращение к hr-у')
 async def handle_support(message: types.Message):
     await message.answer("Обратитесь в техподдержку: <a href='https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
 
 
 # Обработчик для команды /profile и кнопки Профиль
-@rt.message(Command(commands='profile'))
+@rt.message(F.text == '👤Профиль')
 async def handle_profile(message: types.Message):
     con5 = sqlite3.connect('db.sqlite3') # Подключаемся к бд
     cursor5 = con5.cursor() # Создаем курсор 
@@ -185,20 +186,23 @@ async def unban(callback: types. CallbackQuery, state: FSMContext):
 # Обработчик для инлайн кнопки "Статистика"
 @rt.callback_query(checkAdminFilter(adm), F.data == 'statistic_users')
 async def statistic(callback: types. CallbackQuery):
-    async with async_session() as session:
-        result = await session.execute(select(User.tg_id))
-        user_ids = [row[0] for row in result.fetchall()]
-        sum_users = len(set(user_ids))
-        return user_ids, sum_users
-    if users_tg: # Вывод данных из колонок
+    #async with async_session() as session:
+    #    result = await session.execute(select(User.tg_id))
+    #    user_ids = [row[0] for row in result.fetchall()]
+    #    sum_users = len(set(user_ids))
+        #return user_ids, sum_users
+    con2 = sqlite3.connect('db.sqlite3')
+    cur3 = con2.cursor()
+    users_tg = cur3.execute('SELECT * FROM users').fetchall()
+    if len(users_tg) > 0: # Вывод данных из колонок
         message = '👥Информация о базе данных пользователей\n\n'
-        for tg_id, name, number, reg_date in users_tg:
+        for id, tg_id, name, number, reg_date in users_tg:
             message += (f"👤ID Пользователя: {tg_id}\n"
                         f"📝ФИО Пользователя: {name}\n"
                         f"☎️Номер Пользователя: {number}\n"
                         f"📅Дата регистрации: {reg_date}"
                         f"\n〰️〰️〰️〰️〰️〰️〰️〰️〰️\n\n")
-        message += f"Всего пользователей в боте: {sum_users}"
+        message += f"Всего пользователей в боте: {len(users_tg)}"
     else:
         message = 'Нет данных о людях'
     await callback.message.answer(message) 
@@ -242,18 +246,29 @@ async def send_xls(callback: types.CallbackQuery):
 async def banan(message: types.Message, state: FSMContext):
     await state.update_data(ban=message.text) # Сохраняем ID в состоянии 
     data_ban = await state.get_data() # Получаем сохраненные данные
+    #id_pattern = re.compile(r'^[0-9]{10}$')
+    #if not id_pattern.match(message.text):
+    #    await message.answer('❌ Неверный id пользователя!')
+    #    return
     con2 = sqlite3.connect('db.sqlite3')
     cur3 = con2.cursor()
-    cur3.execute(f"SELECT block_tg_id FROM blocked where block_tg_id = {data_ban['ban']}")
-    select_ban = cur3.fetchall()
-    if select_ban:
-        await message.answer('❌ Пользователь уже заблокирован!')
-    else:
-      await message.answer('✅ Пользователь успешно заблокирован!')
-      await rq.set_ban(data_ban['ban']) # Заносим ID в БД
-      cursor2 = con2.cursor() # Создаем курсор для запросов
-      cursor2.execute(f'DELETE FROM allow_users WHERE allow_tg_id = ?', (data_ban['ban'],)) # Удаляем запись из вайтлиста
+    cur3.execute(f"SELECT tg_id FROM users where tg_id = {int(message.text)}")
+    select_user = cur3.fetchall()
+    cur3.execute(f"SELECT block_tg_id FROM blocked where block_tg_id = {int(message.text)}")
+    select_block = cur3.fetchall()
+    if select_user == []:
+        await message.answer('❌ Такого пользователя не существует!')
+        return
+    if len(select_block) > 0:
+        await message.answer('✅ Пользователь уже заблокирован!')
+        return
+    
+    #await rq.set_ban(data_ban['ban']) # Заносим ID в БД
+    cur2 = con2.cursor() # Создаем курсор для запросов
+    cur2.execute(f'DELETE FROM allow_users WHERE allow_tg_id = {int(message.text)}') # Удаляем запись из вайтлиста
+    cur2.execute(f'INSERT INTO blocked (block_tg_id) VALUES ({int(message.text)})')
     con2.commit() # Сохраняем
+    await message.answer('✅ Пользователь успешно заблокирован!')
     await state.clear() # Чистим состояние
 
 # Обработчик для состояния разбана юзера
@@ -261,15 +276,32 @@ async def banan(message: types.Message, state: FSMContext):
 async def unbanan(message: types.Message, state: FSMContext):
     await state.update_data(unban=message.text) # Сохраняем ID в состоянии 
     data_unban = await state.get_data()  # Получаем сохраненные данные
+    #id_pattern = re.compile(r'^[0-9]{10}$')
+    #if not id_pattern.match(message.text):
+    #    await message.answer('❌ Неверный id пользователя!')
+    #    return
+    con2 = sqlite3.connect('db.sqlite3')
+    cur3 = con2.cursor()
+    cur3.execute(f"SELECT tg_id FROM users where tg_id = {int(message.text)}")
+    select_user = cur3.fetchall()
+    cur3.execute(f"SELECT allow_tg_id FROM allow_users where allow_tg_id = {int(message.text)}")
+    select_allow = cur3.fetchall()
+    if select_user == []:
+        await message.answer('❌ Такого пользователя не существует!')
+        return
+    if len(select_allow) > 0:
+        await message.answer('✅ Пользователь уже разблокирован!')
+        return
+    #async with async_session() as session:
+    #    allow_user = AllowUser(allow_tg_id=data_unban['unban'])
+    #    session.add(allow_user)
+#
+    #    stmt = delete(BlockedUser).where(BlockedUser.block_tg_id == data_unban['unban'])
+    #    await session.execute(stmt)
+    cur3.execute(f'DELETE FROM blocked WHERE block_tg_id = {int(message.text)}')
+    cur3.execute(f'INSERT INTO allow_users (allow_tg_id) VALUES ({int(message.text)})')
+    con2.commit()
 
-    await message.answer('✅ Пользователь успешно разблокирован!')
-    async with async_session() as session:
-        allow_user = AllowUser(allow_tg_id=data_unban['unban'])
-        session.add(allow_user)
-
-        stmt = delete(BlockedUser).where(BlockedUser.block_tg_id == data_unban['unban'])
-        await session.execute(stmt)
- 
     await message.answer('✅ Пользователь успешно разблокирован!')
     await state.clear() # Чистим состояние
 
@@ -304,7 +336,7 @@ async def reg_num(message: Message, state: FSMContext, bot: Bot):
     ])
     await bot.send_message(chat_id=request_chat_id, text=text, reply_markup=kb)
     wait_users.append(message.from_user.id)
-    await message.answer("⏳ Ваша заявка на регистрацию отправлена. Ожидайте подтверждения модератора.")
+    await message.answer("⏳ Ваша заявка на регистрацию отправлена. Ожидайте подтверждения модератора.", reply_markup=ReplyKeyboardRemove())
 
 
 # Обработчик подтверждения заявки администратором
@@ -330,6 +362,7 @@ async def approve_registration(callback: types.CallbackQuery, state: FSMContext,
     # Сохраняем пользователя
     await rq.set_user(user_id, data['name'], data['number'])
     del wait_users[wait_users.index(user_id)]
+    await keyboard.set_main_menu(bot)
     await callback.bot.send_message(
         chat_id=user_id,
         text=f"""✨ <b>Регистрация подтверждена!</b>

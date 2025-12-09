@@ -13,15 +13,28 @@ class BanUserMiddleware(BaseMiddleware):
         self.cursor2 = self.con2.cursor()
 
     async def __call__(self,
-                       handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-                       event: TelegramObject,
-                       data: Dict[str, Any]) -> Any:
+        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any]) -> Any:
+        
         ban_id = data["event_from_user"].id
-        banned = self.cursor2.execute(f"SELECT block_tg_id FROM blocked WHERE block_tg_id = {data['event_from_user'].id}").fetchall()
-        if ban_id in banned:
-            return await event.bot.send_message('Вы были заблокированы!')
-        else:
-            return await handler(event,data)
+        
+      
+        self.cursor2.execute("SELECT block_tg_id FROM blocked WHERE block_tg_id = ?", (ban_id,))
+        banned = self.cursor2.fetchall()
+        
+        print(f"ban_id = {ban_id}, banned = {banned}")
+        
+  
+        if banned:
+          
+            if isinstance(event, Message):
+                await event.answer("Вы были заблокированы!")
+      
+            return
+        
+
+        return await handler(event, data)
 
 # Основной Middleware для проверки по вайт-листу
 class AccessMiddleware(BaseMiddleware):
