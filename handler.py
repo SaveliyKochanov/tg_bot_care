@@ -10,9 +10,7 @@ from aiogram.types import (
     FSInputFile, 
     CallbackQuery, 
     InlineKeyboardMarkup, 
-    InlineKeyboardButton,
-    MenuButtonCommands,
-    MenuButtonDefault
+    InlineKeyboardButton
 )
 from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.state import State, StatesGroup
@@ -121,9 +119,9 @@ async def handle_profile(message: types.Message):
     len_tg = cursor5.fetchone()
     #for name, number in len_tg:
     if len_tg:
-      name, number = len_tg
-      response = f"👤 Имя пользователя: {user_name}\n\n🔖 ID пользователя: {user_id}\n\n📃 ФИО Пользователя: {name}\n\n☎️ Номер Пользователя: {number}" # Готовим ответ
-    await message.reply(response)
+        name, number = len_tg
+        response = f"👤 Имя пользователя: {user_name}\n\n🔖 ID пользователя: {user_id}\n\n📃 ФИО Пользователя: {name}\n\n☎️ Номер Пользователя: {number}" # Готовим ответ
+        await message.reply(response)
 
 # Обработчик для команды /order_cert из Быстрого меню
 @rt.message(Command(commands='order_cert'))
@@ -169,7 +167,7 @@ async def send_reg(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer("Нельзя регистрироваться во время ожидания!")
         return
     await state.set_state(Register.name) # Устанавливаем состояние для ввода имени
-    await callback.message.answer('Введите ваше имя') # Делаем запрос имени
+    await callback.message.answer('Введите ваше ФИО полностью') # Делаем запрос имени
 
 # Обработчик для инлайн кнопки "Заблокировать пользователя"
 @rt.callback_query(checkAdminFilter(adm),F.data == 'ban_user')
@@ -363,26 +361,33 @@ async def approve_registration(callback: types.CallbackQuery, state: FSMContext,
     await rq.set_user(user_id, data['name'], data['number'])
     del wait_users[wait_users.index(user_id)]
     await keyboard.set_main_menu(bot)
-    await callback.bot.send_message(
-        chat_id=user_id,
-        text=f"""✨ <b>Регистрация подтверждена!</b>
 
-Рады приветствовать вас, <b>{data['name']}</b>! 🎊
-
-Теперь у вас есть доступ к информационному боту поддержки сотрудников компании КрасИнтегра.
-
-📢 <b>Общая группа:</b> <a href="https://t.me/your_company_group">Красинтегра. Общая информация</a>
-
-<i>Для начала работы воспользуйтесь меню ниже 👇</i>""",
-        reply_markup=keyboard.kb,
-        parse_mode="HTML",
-        disable_web_page_preview=True
-    )
-    await callback.bot.send_message(chat_id=user_id, text='Скачайте файлы, чтобы узнать больше о нашей компании!')
+    await callback.bot.send_message(chat_id=user_id, text='✨ <b>Регистрация подтверждена!</b>', parse_mode="HTML")
+    photo_file = FSInputFile('logo.png', filename='logo.png')
+    await bot.send_photo(chat_id=user_id, photo=photo_file, caption=f'''Рады приветствовать вас, <b>{data['name']}</b>!
+Теперь у вас есть доступ к информационному боту поддержки сотрудников компании КрасИнтегра.''', parse_mode="HTML")
+    await callback.bot.send_message(chat_id=user_id, text='Презентации для новичков.')
     welcome_file = FSInputFile('Добро пожаловать в компанию.pdf')
     about_file = FSInputFile('О компании.pdf')
     await callback.bot.send_document(chat_id=user_id, document=welcome_file)
     await callback.bot.send_document(chat_id=user_id, document=about_file)
+    await callback.bot.send_message(
+        chat_id=user_id,
+        text=f"""
+📢 Просим зарегистрироваться в общем чате Красинтегры:
+<a href="https://t.me/your_company_group">Красинтегра. Общая информация</a>
+
+📢 Просим зарегистрироваться в официальной группе ВК:
+<a href="https://vk.com/krasintegra_it">Красинтегра. Группа ВК</a>
+
+📢 Просим зарегистрироваться в боте заказа обедов:
+<a href="https://web.telegram.org/a/#7595569646">@kras_eda_delivery_bot</a>
+
+<i>По кадровым вопросам воспользуйтесь меню ниже: 👇</i>""",
+        reply_markup=keyboard.kb,
+        parse_mode="HTML",
+        disable_web_page_preview=True
+    )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🔑 Отправить логин и пароль", callback_data=f"send_creds_{user_id}")]

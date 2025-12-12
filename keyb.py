@@ -5,14 +5,19 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from aiogram.types import BotCommand
 
 # Основная клавиатура с кнопками исполнения команд 
-kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')], # Исполнение /profile
-                                   #[KeyboardButton(text = 'Меню')], # 
-                                   [KeyboardButton(text = '❓F.A.Q')]], # Исполнение /help
+kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')],
+                                   [KeyboardButton(text = '📑Сотрудники')],
+                                   [KeyboardButton(text = '🏛️Компания')],
+                                   [KeyboardButton(text = '📞Номера')],
+                                   [KeyboardButton(text = '📄Обратиться к hr-у')]],
                         resize_keyboard=True)
 
 # Экземпляр основной клавиатуры для авторизованного админа
-kb_admin = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')], 
-                                   [KeyboardButton(text = '📄Обращение к hr-у')],
+kb_admin = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')],
+                                   [KeyboardButton(text = '📑Сотрудники')],
+                                   [KeyboardButton(text = '🏛️Компания')],
+                                   [KeyboardButton(text = '📞Номера')],
+                                   [KeyboardButton(text = '📄Обратиться к hr-у')],
                                    [KeyboardButton(text = '💼Админ Панель')]], 
                         resize_keyboard=True)
 
@@ -63,7 +68,7 @@ main_menu_btns = InlineKeyboardMarkup(inline_keyboard=[
 async def set_main_menu(bot: Bot):
     main_menu_commands = [
         BotCommand(command="/start", description="Перезапуск бота"),
-        BotCommand(command="/help", description="Основная Информация"),
+        #BotCommand(command="/help", description="Основная Информация"),
         BotCommand(command="/order_cert",description="Заказать справку"),
         BotCommand(command="/write_note",description="Написать заявление"),
         BotCommand(command="/hospital",description="Мой больничный"),

@@ -23,10 +23,10 @@ class BanUserMiddleware(BaseMiddleware):
         self.cursor2.execute("SELECT block_tg_id FROM blocked WHERE block_tg_id = ?", (ban_id,))
         banned = self.cursor2.fetchall()
         
-        print(f"ban_id = {ban_id}, banned = {banned}")
+        #print(f"ban_id = {ban_id}, banned = {banned}")
         
   
-        if banned:
+        if len(banned) > 0:
           
             if isinstance(event, Message):
                 await event.answer("Вы были заблокированы!")

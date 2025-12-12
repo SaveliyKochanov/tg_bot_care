@@ -44,11 +44,11 @@ class black_list(Base):
     block_tg_id = mapped_column(BigInteger) # колонка с id юзера
 
 # Таблица с id сообщений
-class messages(Base):
-    __tablename__ = 'messages'
-    id: Mapped[int] = mapped_column(primary_key=True) # Определение колонки идентификатора записи
-    tg_id = mapped_column(BigInteger) # колонка с id юзеров
-    message_id = mapped_column(BigInteger) # колонка с id сообщений
+#class messages(Base):
+#    __tablename__ = 'messages'
+#    id: Mapped[int] = mapped_column(primary_key=True) # Определение колонки идентификатора записи
+#    tg_id = mapped_column(BigInteger) # колонка с id юзеров
+#    message_id = mapped_column(BigInteger) # колонка с id сообщений
 
 # Асинхронная функция для инициализации БД
 async def async_main():
