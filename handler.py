@@ -32,8 +32,12 @@ from filters import checkAdminFilter, adm
 # Дополнительные импорты aiogram для полноты
 from aiogram.types import ReplyKeyboardRemove
 
+import datetime
+import os
+
 admin = [int(x.strip()) for x in config.admins.strip().split(',')]
 request_chat_id = config.request_chat_id
+question_chat_id = config.question_chat_id
 password_chat_id = config.password_chat_id
 
 wait_users = []
@@ -47,10 +51,22 @@ class Register(StatesGroup):
     name = State()
     number = State()
 
+# состояние для вопроса пользователя и ответа HR-а
+class Ask(StatesGroup):
+    user_id = State()
+    question = State()
+    answer = State()
+
 # Состояние для блокировки/разблокировки пользователя
 class dialog(StatesGroup):
     ban = State()
     unban = State()
+
+# Состояние типа документа
+class documents(StatesGroup):
+    number = State()
+    employees = State()
+    companies = State()
 
 class SendCreds(StatesGroup):
     waiting_for_credentials = State()
@@ -102,10 +118,59 @@ async def admin_commands(message: types.Message):
     await message.answer(txt.text_1)
 
 
-# Обработчик для команды /ask 
-@rt.message(F.text == '📄Обращение к hr-у')
-async def handle_support(message: types.Message):
-    await message.answer("Обратитесь в техподдержку: <a href='https://t.me/hr_krasintegra'>HR Krasintegra</a>", parse_mode='HTML')
+@rt.message(F.text == '📄Обратиться к hr-у')
+async def handle_support(message: types.Message, state: FSMContext):
+    # Состояние ввода вопроса
+    await state.set_state(Ask.question)
+    await message.answer('''Задайте вопрос HR-специалисту.
+Если не хотите, введите <b>стоп</b>''', parse_mode='HTML')
+    
+@rt.message(Ask.question, F.text)
+async def post_question(message: types.Message, state: FSMContext, bot: Bot):
+    if message.text.lower() == 'стоп':
+        await message.answer('Вопрос отклонен.')
+        await state.set_state("cancel_question")
+        return
+    # Получение ФИО и tg_id пользователя
+    con = sqlite3.connect('db.sqlite3') # Подключаемся к бд
+    cursor = con.cursor() # Создаем курсор
+    tg_id = message.from_user.id
+    name = cursor.execute(f'SELECT name FROM users WHERE tg_id = {tg_id}').fetchall()[0][0]
+    # Отправка вопроса в чат с вопросами
+    await state.set_state("waiting_for_answer")
+    await state.update_data(user_id=tg_id)
+    text = f'''Вопрос от пользователя "{name}"
+(ID: {tg_id}):
+{message.text}'''
+    answer_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='Ответить', callback_data=f'answer_{message.from_user.id}')]
+    ])
+    await bot.send_message(chat_id=question_chat_id, text=text, reply_markup=answer_kb)
+    # Сохранение вопроса (для учета времени)
+    #cursor.execute(f'INSERT INTO question_messages (message, tg_id) VALUES ({message.text}, {tg_id})')
+    #con.commit()
+    await message.answer('✅ Вопрос отправлен! Ожидайте ответа в течение 12 часов.')
+
+@rt.callback_query(F.data.startswith("answer_"))
+async def answer_question(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+    user_id = int(callback.data.split("_")[1])
+    await state.update_data(user_id=user_id)
+    con = sqlite3.connect('db.sqlite3')
+    cursor = con.cursor()
+    name = cursor.execute(f'SELECT name FROM users WHERE tg_id = {user_id}').fetchall()[0][0]
+    text=f'Введите ответ для пользователя <b>{name}</b>'
+    await state.set_state(Ask.answer)
+    await bot.send_message(chat_id=question_chat_id, text=text, parse_mode='HTML')
+
+@rt.message(Ask.answer, F.chat.type.in_({"group", "supergroup"}))
+async def send_answer(message: Message, bot: Bot, state: FSMContext):
+    data = await state.get_data()
+    print(F.text, data['user_id'], message.text, F.chat.type)
+    await state.set_state("send_answer")
+    await bot.send_message(chat_id=question_chat_id, text='✅ Ответ отправлен!')
+    text = f'''Получен ответ от HR:
+{message.text}'''
+    await bot.send_message(chat_id=data['user_id'], text=text)
 
 
 # Обработчик для команды /profile и кнопки Профиль
@@ -122,6 +187,18 @@ async def handle_profile(message: types.Message):
         name, number = len_tg
         response = f"👤 Имя пользователя: {user_name}\n\n🔖 ID пользователя: {user_id}\n\n📃 ФИО Пользователя: {name}\n\n☎️ Номер Пользователя: {number}" # Готовим ответ
         await message.reply(response)
+
+@rt.message(F.text == '📑Сотрудники')
+async def handle_employees(message: types.Message):
+    file_name = os.listdir("documents\\employees")[0]
+    employees_file = FSInputFile(f'documents\\employees\\{file_name}')
+    await message.answer_document(document=employees_file)
+
+@rt.message(F.text == '🏛️Компания')
+async def handle_companies(message: types.Message):
+    file_name = os.listdir("documents\\companies")[0]
+    companies_file = FSInputFile(f'documents\\companies\\{file_name}')
+    await message.answer_document(document=companies_file)
 
 # Обработчик для команды /order_cert из Быстрого меню
 @rt.message(Command(commands='order_cert'))
@@ -169,8 +246,69 @@ async def send_reg(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(Register.name) # Устанавливаем состояние для ввода имени
     await callback.message.answer('Введите ваше ФИО полностью') # Делаем запрос имени
 
+# Обработчик для инлайн кнопки "Номера"
+@rt.callback_query(checkAdminFilter(adm), F.data == 'numbers_doc')
+async def send_doc(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(documents.number)
+    await callback.message.answer(f'Загрузите excel-файл (.xlsx или .xls) с номерами.')
+
+# Обработчик для инлайн кнопки "Сотрудники"
+@rt.callback_query(checkAdminFilter(adm), F.data == 'employees_doc')
+async def send_doc(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(documents.employees)
+    await callback.message.answer(f'Загрузите excel-файл (.xlsx или .xls) с данными сотрудников.')
+
+# Обработчик для инлайн кнопки "Компании"
+@rt.callback_query(checkAdminFilter(adm), F.data == 'companies_doc')
+async def send_doc(callback: types.CallbackQuery, state: FSMContext):
+    await state.set_state(documents.companies)
+    await callback.message.answer(f'Загрузите excel-файл (.xlsx или .xls) с компаниями.')
+
+@rt.message(checkAdminFilter(adm), documents.number, F.document)
+async def send_numbers(message: types.Message, bot: Bot):
+    file_name = message.document.file_name
+    if not (file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+        await message.answer('❌ Неверный формат файла!')
+        return
+    file_id = message.document.file_id
+    file_path = (await bot.get_file(file_id)).file_path
+    download_path = f"documents\\numbers\\{message.document.file_name}"
+    for file in os.listdir(path='documents\\numbers'):
+        os.remove(f'documents\\numbers\\{file}')
+    await bot.download_file(file_path, download_path)
+    await message.answer(f'✅ Excel-файл {file_name} успешно заменен!')
+
+@rt.message(checkAdminFilter(adm), documents.companies, F.document)
+async def send_numbers(message: types.Message, bot: Bot):
+    file_name = message.document.file_name
+    if not (file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+        await message.answer('❌ Неверный формат файла!')
+        return
+    file_id = message.document.file_id
+    file_path = (await bot.get_file(file_id)).file_path
+    download_path = f"documents\\companies\\{message.document.file_name}"
+    for file in os.listdir(path='documents\\companies'):
+        os.remove(f'documents\\companies\\{file}')
+    await bot.download_file(file_path, download_path)
+    await message.answer(f'✅ Excel-файл {file_name} успешно заменен!')
+
+@rt.message(checkAdminFilter(adm), documents.employees, F.document)
+async def send_numbers(message: types.Message, bot: Bot):
+    file_name = message.document.file_name
+    if not (file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+        await message.answer('❌ Неверный формат файла!')
+        return
+    file_id = message.document.file_id
+    file_path = (await bot.get_file(file_id)).file_path
+    download_path = f"documents\\employees\\{message.document.file_name}"
+    for file in os.listdir(path='documents\\employees'):
+        os.remove(f'documents\\employees\\{file}')
+    await bot.download_file(file_path, download_path)
+    await message.answer(f'✅ Excel-файл {file_name} успешно заменен!')
+
+
 # Обработчик для инлайн кнопки "Заблокировать пользователя"
-@rt.callback_query(checkAdminFilter(adm),F.data == 'ban_user')
+@rt.callback_query(checkAdminFilter(adm), F.data == 'ban_user')
 async def black_list(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(dialog.ban) # Устанавливаем состояние для ввода ID
     await callback.message.answer('Введите ID пользователя')

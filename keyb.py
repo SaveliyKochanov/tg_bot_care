@@ -8,7 +8,7 @@ from aiogram.types import BotCommand
 kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')],
                                    [KeyboardButton(text = '📑Сотрудники')],
                                    [KeyboardButton(text = '🏛️Компания')],
-                                   [KeyboardButton(text = '📞Номера')],
+                                   #[KeyboardButton(text = '📞Номера')],
                                    [KeyboardButton(text = '📄Обратиться к hr-у')]],
                         resize_keyboard=True)
 
@@ -16,7 +16,7 @@ kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')]
 kb_admin = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text = '👤Профиль')],
                                    [KeyboardButton(text = '📑Сотрудники')],
                                    [KeyboardButton(text = '🏛️Компания')],
-                                   [KeyboardButton(text = '📞Номера')],
+                                   #[KeyboardButton(text = '📞Номера')],
                                    [KeyboardButton(text = '📄Обратиться к hr-у')],
                                    [KeyboardButton(text = '💼Админ Панель')]], 
                         resize_keyboard=True)
@@ -50,7 +50,10 @@ btn_my_term = InlineKeyboardMarkup(inline_keyboard=[
 btn_admin = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text = 'Заблокировать пользователя',callback_data='ban_user')],
     [InlineKeyboardButton(text = 'Разблокировать пользователя',callback_data = 'unban_user')],
-    [InlineKeyboardButton(text = 'Статистика',callback_data='statistic_users')]
+    [InlineKeyboardButton(text = 'Статистика',callback_data='statistic_users')],
+    [InlineKeyboardButton(text = 'Номера',callback_data='numbers_doc')],
+    [InlineKeyboardButton(text = 'Компании',callback_data='companies_doc')],
+    [InlineKeyboardButton(text = 'Сотрудники',callback_data='employees_doc')]
 ])
 
 main_menu_btns = InlineKeyboardMarkup(inline_keyboard=[
@@ -91,4 +94,11 @@ approve_keyboard = InlineKeyboardMarkup(
     ]
 )
 
-        
+# Кнопка для ответа на сообщение пользователя
+answer_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(text='Ответить', callback_data='answer_{}') 
+        ]
+    ]
+)
