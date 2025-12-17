@@ -32,7 +32,8 @@ from filters import checkAdminFilter, adm
 # Дополнительные импорты aiogram для полноты
 from aiogram.types import ReplyKeyboardRemove
 
-import datetime
+import asyncio
+from datetime import datetime
 import os
 
 admin = [int(x.strip()) for x in config.admins.strip().split(',')]
@@ -41,6 +42,7 @@ question_chat_id = config.question_chat_id
 password_chat_id = config.password_chat_id
 
 wait_users = []
+questions_in_group = []
 
 rt = Router() # Отделяем файл с хендлерами от остальных модулей
 #rt.message.middleware(AccessMiddleware()) # Подключение пропускного миддлвэйра к роутеру
@@ -120,10 +122,15 @@ async def admin_commands(message: types.Message):
 
 @rt.message(F.text == '📄Обратиться к hr-у')
 async def handle_support(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    for question in questions_in_group:
+        if data['user_id'] in question:
+            await message.answer('❌ Дождитесь ответа от HR!')
+            return
     # Состояние ввода вопроса
     await state.set_state(Ask.question)
     await message.answer('''Задайте вопрос HR-специалисту.
-Если не хотите, введите <b>стоп</b>''', parse_mode='HTML')
+Если не хотите, введите "<b>стоп</b>"''', parse_mode='HTML')
     
 @rt.message(Ask.question, F.text)
 async def post_question(message: types.Message, state: FSMContext, bot: Bot):
@@ -137,7 +144,6 @@ async def post_question(message: types.Message, state: FSMContext, bot: Bot):
     tg_id = message.from_user.id
     name = cursor.execute(f'SELECT name FROM users WHERE tg_id = {tg_id}').fetchall()[0][0]
     # Отправка вопроса в чат с вопросами
-    await state.set_state("waiting_for_answer")
     await state.update_data(user_id=tg_id)
     text = f'''Вопрос от пользователя "{name}"
 (ID: {tg_id}):
@@ -145,14 +151,22 @@ async def post_question(message: types.Message, state: FSMContext, bot: Bot):
     answer_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text='Ответить', callback_data=f'answer_{message.from_user.id}')]
     ])
-    await bot.send_message(chat_id=question_chat_id, text=text, reply_markup=answer_kb)
-    # Сохранение вопроса (для учета времени)
-    #cursor.execute(f'INSERT INTO question_messages (message, tg_id) VALUES ({message.text}, {tg_id})')
-    #con.commit()
+    question_message = await bot.send_message(chat_id=question_chat_id, text=text, reply_markup=answer_kb)
+    questions_in_group.append([tg_id, question_message.message_id])
+    # Запуск таймера
+    asyncio.create_task(delete_button_after_time(chat_id=question_chat_id, 
+                                                 message_id=question_message.message_id, 
+                                                 time=43200, 
+                                                 bot=bot))
     await message.answer('✅ Вопрос отправлен! Ожидайте ответа в течение 12 часов.')
 
+# Удаление кнопки под вопросом через 12 часов
+async def delete_button_after_time(chat_id, message_id, time, bot: Bot):
+    await asyncio.sleep(time)
+    await bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
+
 @rt.callback_query(F.data.startswith("answer_"))
-async def answer_question(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
+async def answer_question(callback: types.CallbackQuery, state: FSMContext, bot):
     user_id = int(callback.data.split("_")[1])
     await state.update_data(user_id=user_id)
     con = sqlite3.connect('db.sqlite3')
@@ -165,8 +179,13 @@ async def answer_question(callback: types.CallbackQuery, state: FSMContext, bot:
 @rt.message(Ask.answer, F.chat.type.in_({"group", "supergroup"}))
 async def send_answer(message: Message, bot: Bot, state: FSMContext):
     data = await state.get_data()
-    print(F.text, data['user_id'], message.text, F.chat.type)
     await state.set_state("send_answer")
+    # Удаление кнопки "Ответить" с вопроса
+    for i in range(len(questions_in_group)):
+        if data['user_id'] in questions_in_group[i]:
+            await bot.edit_message_reply_markup(chat_id=question_chat_id, message_id=questions_in_group[i][1], reply_markup=None)
+            del questions_in_group[i]
+            break
     await bot.send_message(chat_id=question_chat_id, text='✅ Ответ отправлен!')
     text = f'''Получен ответ от HR:
 {message.text}'''
@@ -331,17 +350,28 @@ async def statistic(callback: types. CallbackQuery):
     cur3 = con2.cursor()
     users_tg = cur3.execute('SELECT * FROM users').fetchall()
     if len(users_tg) > 0: # Вывод данных из колонок
-        message = '👥Информация о базе данных пользователей\n\n'
+        new_message = '👥Информация о базе данных пользователей\n\n'
+        old_message = new_message
         for id, tg_id, name, number, reg_date in users_tg:
-            message += (f"👤ID Пользователя: {tg_id}\n"
+            new_message += (f"👤ID Пользователя: {tg_id}\n"
                         f"📝ФИО Пользователя: {name}\n"
                         f"☎️Номер Пользователя: {number}\n"
                         f"📅Дата регистрации: {reg_date}"
                         f"\n〰️〰️〰️〰️〰️〰️〰️〰️〰️\n\n")
-        message += f"Всего пользователей в боте: {len(users_tg)}"
+            if len(new_message) > 4000: 
+                await callback.message.answer(old_message)
+                new_message = (f"👤ID Пользователя: {tg_id}\n"
+                        f"📝ФИО Пользователя: {name}\n"
+                        f"☎️Номер Пользователя: {number}\n"
+                        f"📅Дата регистрации: {reg_date}"
+                        f"\n〰️〰️〰️〰️〰️〰️〰️〰️〰️\n\n")
+                old_message = new_message
+                continue
+            old_message = new_message
+        new_message += f"Всего пользователей в боте: {len(users_tg)}"
     else:
-        message = 'Нет данных о людях'
-    await callback.message.answer(message) 
+        new_message = 'Нет данных о людях'
+    await callback.message.answer(new_message) 
 
 @rt.callback_query(F.data == 'find_rest')
 async def send_ost(callback: types.CallbackQuery):
