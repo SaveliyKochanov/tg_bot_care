@@ -43,14 +43,6 @@ class black_list(Base):
     id: Mapped[int] = mapped_column(primary_key=True) # Определение колонки идентификатора записи
     block_tg_id = mapped_column(BigInteger) # колонка с id юзера
 
-# Таблица с вопросами пользователей
-class question_messages(Base):
-    __tablename__ = 'question_messages'
-    id: Mapped[int] = mapped_column(primary_key=True) # Определение колонки идентификатора записи
-    tg_id = mapped_column(BigInteger) # колонка с id юзеров
-    message_id = mapped_column(BigInteger) # колонка с id сообщений
-    date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
 # Асинхронная функция для инициализации БД
 async def async_main():
     async with engine.begin() as conn:

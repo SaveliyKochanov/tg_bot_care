@@ -43,6 +43,7 @@ password_chat_id = config.password_chat_id
 
 wait_users = []
 questions_in_group = []
+answer_btn = []
 
 rt = Router() # Отделяем файл с хендлерами от остальных модулей
 #rt.message.middleware(AccessMiddleware()) # Подключение пропускного миддлвэйра к роутеру
@@ -154,10 +155,12 @@ async def post_question(message: types.Message, state: FSMContext, bot: Bot):
     question_message = await bot.send_message(chat_id=question_chat_id, text=text, reply_markup=answer_kb)
     questions_in_group.append([tg_id, question_message.message_id])
     # Запуск таймера
-    asyncio.create_task(delete_button_after_time(chat_id=question_chat_id, 
+    task = asyncio.create_task(delete_button_after_time(chat_id=question_chat_id, 
                                                  message_id=question_message.message_id, 
                                                  time=43200, 
                                                  bot=bot))
+    answer_btn.append([task, tg_id])
+    await state.clear()
     await message.answer('✅ Вопрос отправлен! Ожидайте ответа в течение 12 часов.')
 
 # Удаление кнопки под вопросом через 12 часов
@@ -186,7 +189,14 @@ async def send_answer(message: Message, bot: Bot, state: FSMContext):
             await bot.edit_message_reply_markup(chat_id=question_chat_id, message_id=questions_in_group[i][1], reply_markup=None)
             del questions_in_group[i]
             break
+    # Удаление счетчика для исчезновения кнопки через 12 часов
+    for i in range(len(answer_btn)):
+        if data['user_id'] in answer_btn[i]:
+            answer_btn[i][0].cancel()
+            del answer_btn[i]
+            break
     await bot.send_message(chat_id=question_chat_id, text='✅ Ответ отправлен!')
+    await state.clear()
     text = f'''Получен ответ от HR:
 {message.text}'''
     await bot.send_message(chat_id=data['user_id'], text=text)
