@@ -182,7 +182,7 @@ async def answer_question(callback: types.CallbackQuery, state: FSMContext, bot)
 @rt.message(Ask.answer, F.chat.type.in_({"group", "supergroup"}))
 async def send_answer(message: Message, bot: Bot, state: FSMContext):
     data = await state.get_data()
-    await state.set_state("send_answer")
+    await state.clear()
     # Удаление кнопки "Ответить" с вопроса
     for i in range(len(questions_in_group)):
         if data['user_id'] in questions_in_group[i]:
@@ -196,7 +196,6 @@ async def send_answer(message: Message, bot: Bot, state: FSMContext):
             del answer_btn[i]
             break
     await bot.send_message(chat_id=question_chat_id, text='✅ Ответ отправлен!')
-    await state.clear()
     text = f'''Получен ответ от HR:
 {message.text}'''
     await bot.send_message(chat_id=data['user_id'], text=text)
