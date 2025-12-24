@@ -72,12 +72,12 @@ async def set_main_menu(bot: Bot):
     main_menu_commands = [
         BotCommand(command="/start", description="Перезапуск бота"),
         #BotCommand(command="/help", description="Основная Информация"),
-        BotCommand(command="/order_cert",description="Заказать справку"),
-        BotCommand(command="/write_note",description="Написать заявление"),
-        BotCommand(command="/hospital",description="Мой больничный"),
-        BotCommand(command="/life_circum",description="Жизненные обстоятельства"),
-        BotCommand(command="/my_vac", description = "Мой отпуск"),
-        BotCommand(command="/my_term",description = "Мой испытательный срок")
+        # BotCommand(command="/order_cert",description="Заказать справку"),
+        # BotCommand(command="/write_note",description="Написать заявление"),
+        # BotCommand(command="/hospital",description="Мой больничный"),
+        # BotCommand(command="/life_circum",description="Жизненные обстоятельства"),
+        # BotCommand(command="/my_vac", description = "Мой отпуск"),
+        # BotCommand(command="/my_term",description = "Мой испытательный срок")
         ]     
     await bot.set_my_commands(main_menu_commands)
 

@@ -5,7 +5,11 @@ import sqlite3
 from aiogram import BaseMiddleware
 from typing import Callable, Dict, Any, Awaitable
 from aiogram.types import Message, TelegramObject
+from aiogram.enums import ChatType
 
+from config_file import config
+
+question_chat_id = config.question_chat_id 
 # Middleware для исполнение блокировки пользоватея
 class BanUserMiddleware(BaseMiddleware):
     def __init__(self):
@@ -54,4 +58,16 @@ class AccessMiddleware(BaseMiddleware):
         else:
              return await handler(event, data) 
         
-
+class PrivateChatOnlyMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+        event: Message,
+        data: Dict[str, Any]
+    ) -> Any:
+        chat = getattr(event, 'chat', None) or \
+               getattr(event, 'message', None) and event.message.chat
+        
+        if not chat or chat.type != ChatType.PRIVATE:
+            return None
+        return await handler(event, data)
